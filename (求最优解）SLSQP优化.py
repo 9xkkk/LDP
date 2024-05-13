@@ -1,95 +1,56 @@
-# min {|x-x1|+|y-y1|+|x-x2|+|y-y2|+|x-x3|+|y-y3|}
-# s.t. (x-x1)**2 + (y-y1)**2 <= r1**2
-#      (x-x2)**2 + (y-y2)**2 <= r2**2
-#      (x-x3)**2 + (y-y3)**2 <= r3**2
-# 上述x1,x2,x3,y1,y2,y3，r1,r2,r3都已知，且**2代表平方的意思，请问上述最优化方程是否可以找到最优解，请给出用python求解的代码
-from scipy.optimize import minimize
+import math
 import numpy as np
-from scipy.optimize import differential_evolution
 from scipy import optimize
-from matplotlib import pyplot as plt
 
-c1 = [10,20,10]
-c2 = [20,10,10]
-c3 = [5,5,10]
-c4 = [10,10,10]
-x1 = c1[0]
-y1=c1[1]
-r1=c1[2]
-x2 = c2[0]
-y2=c2[1]
-r2=c2[2]
-x3 = c3[0]
-y3=c3[1]
-r3=c3[2]
-x4 = c4[0]
-y4 = c4[1]
-r4 = c4[2]
+def opt_0(Epsilon, m):
+    def f(X):
+        func = 0
+        for i in range(len(m)):
+            func += m[i] * X[i + len(m)] * (1 - X[i + len(m)]) / ((X[i] - X[i + len(m)]) ** 2)
+        max_1 = []
+        for i in range(len(m)):
+            max_1.append((1 - X[i] - X[i + len(m)]) / (X[i] - X[i + len(m)]))
+        max_1 = max(max_1)
+        return func + max_1
+
+    def constraint_func(X, i, j):
+        epsilon_1, epsilon_2 = Epsilon[i], Epsilon[j]
+        epsilon = min(epsilon_1, epsilon_2)
+        return math.e ** epsilon - (X[i] * (1 - X[j + len(m)])) / (X[i + len(m)] * (1 - X[j]))
+
+    def constraint_func2(X, i):
+        return X[i] - X[i+len(m)]
+
+    def constraint_func3(X, i):
+        return X[i] - 0.5
+
+    def constraint_func4(X, i):
+        return 0.5 - X[i+len(m)]
+
+    constraints = []
+    for i in range(len(m)):
+        for j in range(len(m)):
+            # 使用偏函数来捕获 i 和 j 的当前值
+            constraints.append({'type': 'ineq', 'fun': lambda X, i=i, j=j: constraint_func(X, i, j)})
+        constraints.append({'type': 'ineq', 'fun': lambda X, i=i: constraint_func2(X, i)})
+        constraints.append({'type': 'ineq', 'fun': lambda X, i=i: constraint_func3(X, i)})
+        constraints.append({'type': 'ineq', 'fun': lambda X, i=i: constraint_func4(X, i)})
+
+    # 初始化 x_start，确保长度是 2 * len(m)
+    initial_probabilities_x = np.random.uniform(0.5, 1, len(m))
+    initial_probabilities_y = np.random.uniform(0, 0.5, len(m))
+    initial_probabilities = np.concatenate((initial_probabilities_x, initial_probabilities_y))
+
+    result = optimize.minimize(f, initial_probabilities, method='SLSQP', bounds=[(0, 1)]*len(initial_probabilities), constraints=constraints)
+    if not result.success:
+        print("Optimization failed:", result.message)
+        return None
+    X_optimal = result.x
+    return X_optimal
 
 
-def f(X):
-    return (X[0] - x1)**2 + (X[1] - y1)**2 + (X[0] -x2)**2 + (X[1] - y2)**2 + (X[0] - x3)**2 + (X[1] - y3)**2 + (X[0] - x4)**2 + (X[1] - y4)**2
-    # return abs(X[0] - x1) + abs(X[1] - y1) + abs(X[0] - x2) + abs(X[1] - y2) + abs(X[0] - x3) + abs(X[1] - y3)
-def constraints1(X):
-    return (X[0] - x1)**2 + (X[1] - y1)**2 - r1**2
-
-def constraints2(X):
-    return (X[0] -x2)**2 + (X[1] - y2)**2 - r2**2
-
-def constraints3(X):
-    return (X[0] - x3)**2 + (X[1] - y3)**2 - r3**2
-
-def constraints4(X):
-    return (X[0] - x4)**2 + (X[1] - y4)**2 - r4**2
-
-constraints = [
-    {'type': 'ineq', 'fun': constraints1},
-    {'type': 'ineq', 'fun': constraints2},
-    {'type': 'ineq', 'fun': constraints3},
-    {'type': 'ineq', 'fun': constraints4}
-]
-x_start = optimize.brute(f, [(0, 20, 0.5), (0, 20, 0.5)], finish=None)
-result = optimize.minimize(f, x_start, method='SLSQP', constraints=constraints)
-
-print(result)
-# 绘制圆形
-def plot_circle(x, y, r, color):
-    theta = np.linspace(0, 2*np.pi, 100)
-    cx = x + r * np.cos(theta)
-    cy = y + r * np.sin(theta)
-    plt.plot(cx, cy, color)
-
-# 绘制最优解点和圆形
-def plot_solution(x, y):
-    plt.scatter(x, y, color='red', label='Optimal Solution')
-    plot_circle(x1, y1, r1, 'r')
-    plot_circle(x2, y2, r2, 'g')
-    plot_circle(x3, y3, r3, 'b')
-    plot_circle(x4, y4, r4, 'y')
-
-# 创建一个图形对象
-fig, ax = plt.subplots()
-
-# 绘制圆形
-plot_circle(x1, y1, r1, 'r')
-plot_circle(x2, y2, r2, 'g')
-plot_circle(x3, y3, r3, 'b')
-plot_circle(x4, y4, r4, 'y')
-
-# 绘制最优解点
-plot_solution(result.x[0], result.x[1])
-
-# 设置坐标轴范围
-ax.set_xlim([-30, 30])
-ax.set_ylim([-30, 30])
-
-# 添加标题和标签
-plt.title('Three Circles and Optimal Solution')
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-
-# 添加图例
-plt.legend()
-
-# 显示图形
-plt.show()
+if __name__ == '__main__':
+    Epsilon = [np.log(4), np.log(6)]
+    m = [1, 4]
+    probabilities = opt_0(Epsilon, m)
+    print(probabilities)
